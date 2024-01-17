@@ -87,8 +87,8 @@ class MPCComputations_VP:
         ans = np.histogramdd(ab, bins, weights=None)[0]
         data_vector = ans.flatten() if flatten else ans
         data_vector = data_vector + np.random.normal(loc=0, scale=scale, size=size)
-        padded_data_vector = np.pad(data_vector, (0, max(self.domain) - len(data_vector)), 'constant')
-        return padded_data_vector
+        #padded_data_vector = np.pad(data_vector, (0, max(self.domain) - len(data_vector)), 'constant')
+        return data_vector
 
     def select_marginal_worst_approximated(self,candidate_workloads,eps,alice_data, bob_data, bounded = False):
         errors = np.array([])
