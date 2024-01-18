@@ -29,15 +29,18 @@ class HDataHolder:
     def number_of_samples(self):
         self.total_samples = self.data.shape[0]
 
-    def compute_answers(self,workload,domain,max_domain_size,flatten=True):
+    def compute_answers(self,workload,domain,max_domain_size,keep_pad=True,flatten=True):
         my_ans = []
         for cl in workload:
             shape = domain.project(cl).shape
             bins = [range(n+1) for n in shape]
             ans = np.histogramdd(self.data[list(cl)].values, bins, weights=self.weights)[0]
             data_vector = ans.flatten() if flatten else ans
-            padded_data_vector = np.pad(data_vector, (0, max_domain_size - len(data_vector)), 'constant')
-            my_ans.append(padded_data_vector)
+            if keep_pad:
+                padded_data_vector = np.pad(data_vector, (0, max_domain_size - len(data_vector)), 'constant')
+                my_ans.append(padded_data_vector)
+            else:
+                my_ans.append(data_vector)
         self.workload_answers = my_ans
 
 

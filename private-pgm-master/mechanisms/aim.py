@@ -1,9 +1,10 @@
 import numpy as np
 import itertools
 from mbi import Dataset, GraphicalModel, FactoredInference, Domain
-from mechanisms.mechanism import Mechanism
+from mechanism import Mechanism
 from collections import defaultdict
-from hdmm.matrix import Identity
+#from hdmm.matrix import Identity
+from matrix import Identity
 from scipy.optimize import bisect
 import pandas as pd
 from mbi import Factor
@@ -65,6 +66,8 @@ class AIM(Mechanism):
         rounds = self.rounds or 16*len(data.domain)
         workload = [cl for cl, _ in W]
         candidates = compile_workload(workload)
+
+        # Requires MPC, Compute answers and keep
         answers = { cl : data.project(cl).datavector() for cl in candidates }
 
         oneway = [cl for cl in candidates if len(cl) == 1]
@@ -100,13 +103,18 @@ class AIM(Mechanism):
             size_limit = self.max_model_size*rho_used/self.rho
 
             small_candidates = filter_candidates(candidates, model, size_limit)
+
+            # Requires MPC
             cl = self.worst_approximated(small_candidates, answers, model, epsilon, sigma)
 
             n = data.domain.size(cl)
-            Q = Identity(n) 
+            Q = Identity(n)
+
+            #Requires MPC
             x = data.project(cl).datavector()
             y = x + self.gaussian_noise(sigma, n)
             measurements.append((Q, y, sigma, cl))
+
             z = model.project(cl).datavector()
 
             model = engine.estimate(measurements)

@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from scipy.special import softmax
+from scipy.special import logsumexp
 
 
 class MPCComputations_HP:
@@ -11,35 +12,46 @@ class MPCComputations_HP:
         self.bob_ans = bob_ans
 
 
-    def compute_workload_answer(self):
-        '''
-        This is for vertical partitioning"
-        '''
-        pass
 
-    def select_marginal_worst_approximated(self,candidate_workloads,eps, bounded = False):
+
+    def select_marginal_worst_approximated(self,candidate_workloads,eps, bounded = False,mst=False,monotonic=False):
         errors = np.array([])
         for marginal_index in candidate_workloads:
             #reduce number of additions by taking only domain size
             size = self.domain[marginal_index]
             x = self.alice_ans[marginal_index][:size] + self.bob_ans[marginal_index][:size]
             xest = self.est_ans[marginal_index][:size]
-            errors = np.append(errors, np.abs(x - xest).sum()-size)
-        sensitivity = 2.0 if bounded else 1.0
-        prob = softmax(0.5*eps/sensitivity*(errors - errors.max()))
-        key = np.random.choice(len(errors), p=prob)
+            if mst:
+                errors = np.append(errors,np.linalg.norm(x - xest, 1))
+            else:
+               errors = np.append(errors, np.abs(x - xest).sum()-size)
+        if not mst:
+            sensitivity = 2.0 if bounded else 1.0
+            prob = softmax(0.5*eps/sensitivity*(errors - errors.max()))
+            key = np.random.choice(len(errors), p=prob)
+        else:
+            sensitivity = 1.0
+            coef = 1.0 if monotonic else 0.5
+            scores = coef*eps/sensitivity*errors
+            probas = np.exp(scores - logsumexp(scores))
+            key = np.random.choice(errors.size, p=probas)
         return key
 
-    def get_noisy_measurement(self,marginal_index,scale):
+    def get_noisy_measurement(self,marginal_index,scale,noise='gaussian'):
         size = self.domain[marginal_index]
         x = self.alice_ans[marginal_index][:size] + self.bob_ans[marginal_index][:size]
-        y = x + np.random.normal(loc=0, scale=scale, size=size)
+        if noise == 'laplace':
+            y = x + np.random.laplace(loc=0, scale=scale, size=size)
+        else:
+            y = x + np.random.normal(loc=0, scale=scale, size=size)
         return y
 
     def get_noisy_results(self,candidates,exp_eps,measure_scale):
         ax =  self.select_marginal_worst_approximated(candidates,exp_eps)
         y =  self.get_noisy_measurement(ax,measure_scale)
         return ax,y
+
+
 
 
 

@@ -27,6 +27,7 @@ def MST(data, epsilon, delta):
     engine = FactoredInference(data.domain, iters=5000)
     est = engine.estimate(log1+log2)
     synth = est.synthetic_data()
+    #return synth
     return undo_compress_fn(synth)
 
 def measure(data, cliques, sigma, weights=None):
@@ -152,6 +153,65 @@ def default_params():
 
     return params
 
+def ML_utility_eval(label_, data, syn_data):
+    from sklearn.model_selection import train_test_split
+    from sklearn.preprocessing import StandardScaler, OrdinalEncoder, MinMaxScaler
+    from sklearn.preprocessing import OneHotEncoder
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.ensemble import RandomForestClassifier
+
+    df = data.df
+    df_train, df_test = train_test_split(df, test_size=0.2)
+    label = label_
+    features_cfe = [col for col in df.columns if col != 'label']
+    #df_train.columns:, df_train.columns != 'label'
+
+    #lr = LogisticRegression(random_state=32)
+    #rf_classifier = RandomForestClassifier(n_estimators=100, random_state=42)
+
+    #models = [lr, rf_classifier]
+    #for clf in models:
+
+    clf = LogisticRegression(random_state=32)
+    clf.fit(df_train[features_cfe], df_train[label])
+    baseline = clf.score(df_train[features_cfe], df_train[label].values.ravel())
+    print("Real train accuracy: %.2f%%" % (baseline * 100))
+    print(np.unique(clf.predict(df_train[features_cfe]), return_counts=True))
+    baseline = clf.score(df_test[features_cfe], df_test[label].values.ravel())
+    print("Real test accuracy: %.2f%%" % (baseline * 100))
+    print(np.unique(clf.predict(df_test[features_cfe]), return_counts=True))
+
+    clf = LogisticRegression(random_state=32)
+    clf.fit(syn_data[features_cfe], syn_data[label])
+    baseline = clf.score(syn_data[features_cfe], syn_data[label].values.ravel())
+    print("Syn train accuracy: %.2f%%" % (baseline * 100))
+    print(np.unique(clf.predict(syn_data[features_cfe]), return_counts=True))
+    baseline = clf.score(df_test[features_cfe], df_test[label].values.ravel())
+    print("Real test accuracy: %.2f%%" % (baseline * 100))
+    print(np.unique(clf.predict(df_test[features_cfe]), return_counts=True))
+
+
+    clf = RandomForestClassifier(n_estimators=100, random_state=42)
+    clf.fit(df_train[features_cfe], df_train[label])
+    baseline = clf.score(df_train[features_cfe], df_train[label].values.ravel())
+    print("Real train accuracy: %.2f%%" % (baseline * 100))
+    print(np.unique(clf.predict(df_train[features_cfe]), return_counts=True))
+    baseline = clf.score(df_test[features_cfe], df_test[label].values.ravel())
+    print("Real test accuracy: %.2f%%" % (baseline * 100))
+    print(np.unique(clf.predict(df_test[features_cfe]), return_counts=True))
+
+    clf = RandomForestClassifier(n_estimators=100, random_state=42)
+    clf.fit(syn_data[features_cfe], syn_data[label])
+    baseline = clf.score(syn_data[features_cfe], syn_data[label].values.ravel())
+    print("Syn train accuracy: %.2f%%" % (baseline * 100))
+    print(np.unique(clf.predict(syn_data[features_cfe]), return_counts=True))
+    baseline = clf.score(df_test[features_cfe], df_test[label].values.ravel())
+    print("Real test accuracy: %.2f%%" % (baseline * 100))
+    print(np.unique(clf.predict(df_test[features_cfe]), return_counts=True))
+
+
+
+
 
 if __name__ == '__main__':
 
@@ -172,7 +232,9 @@ if __name__ == '__main__':
     parser.set_defaults(**default_params())
     args = parser.parse_args()
 
+
     data = Dataset.load(args.dataset, args.domain)
+
 
     workload = list(itertools.combinations(data.domain, args.degree))
     workload = [cl for cl in workload if data.domain.size(cl) <= args.max_cells]
@@ -190,4 +252,11 @@ if __name__ == '__main__':
         Y = synth.project(proj).datavector()
         e = 0.5*np.linalg.norm(X/X.sum() - Y/Y.sum(), 1)
         errors.append(e)
-    print('Average Error: ', np.mean(errors)) 
+    print('Average Error: ', np.mean(errors))
+
+
+    #ML_utility_eval('income>50K',data,synth.df)
+
+
+
+

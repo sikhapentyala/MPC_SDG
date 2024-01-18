@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 from mbi import FactoredInference, Dataset, Domain
 from scipy import sparse
@@ -7,6 +9,10 @@ import itertools
 from cdp2adp import cdp_rho
 from scipy.special import logsumexp
 import argparse
+# Sikha start
+from DataHolders import HDataHolder
+from MPC import MPCComputations_HP
+# Sikha end
 
 """
 This is a generalization of the winning mechanism from the 
@@ -16,37 +22,73 @@ Unlike the original implementation, this one can work for any discrete dataset,
 and does not rely on public provisional data for measurement selection.  
 """
 
-def MST(data, epsilon, delta):
+def MST(domain, epsilon, delta):
     rho = cdp_rho(epsilon, delta)
     sigma = np.sqrt(3/(2*rho))
-    cliques = [(col,) for col in data.domain]
+    cliques = [(col,) for col in domain]
+
+    '''MPC start'''
+    #For local computations'''
+    domain_size = [domain.project(cl).size() for cl in cliques]
+    max_domain_size = max(domain_size)
+    alice.load_data()
+    bob.load_data()
+    total = (alice.total_samples + bob.total_samples)
+    alice.compute_answers(cliques,domain,max_domain_size,keep_pad=False)
+    bob.compute_answers(cliques,domain,max_domain_size,keep_pad=False)
+    mpc_1 = MPCComputations_HP(domain_size, None, alice.workload_answers, bob.workload_answers)
     # MPC for measure
-    log1 = measure(data, cliques, sigma)
-    data, log1, undo_compress_fn = compress_domain(data, log1)
+    log1 = measure(mpc_1, cliques, domain_size, sigma)
+    '''MPC end'''
+    #data, log1, undo_compress_fn = compress_domain(data, log1)
+
     # MPC for select
-    cliques = select(data, rho/3.0, log1)
+    workloads = list(itertools.combinations(domain.attrs, 2))
+    domain_size = [domain.project(cl).size() for cl in workloads]
+    max_domain_size = max(domain_size)
+    total = (alice.total_samples + bob.total_samples)
+    alice.compute_answers(workloads,domain,max_domain_size,keep_pad=False)
+    bob.compute_answers(workloads,domain,max_domain_size,keep_pad=False)
+    mpc_2 = MPCComputations_HP(domain_size, None, alice.workload_answers, bob.workload_answers)
+    cliques = select(mpc_2, workloads,domain, rho/3.0, log1)
+
+
     # MPC for measure
-    log2 = measure(data, cliques, sigma)
-    engine = FactoredInference(data.domain, iters=5000)
+    domain_size = [domain.project(cl).size() for cl in cliques]
+    max_domain_size = max(domain_size)
+    total = (alice.total_samples + bob.total_samples)
+    alice.compute_answers(cliques,domain,max_domain_size,keep_pad=False)
+    bob.compute_answers(cliques,domain,max_domain_size,keep_pad=False)
+    mpc_3 = MPCComputations_HP(domain_size, None, alice.workload_answers, bob.workload_answers)
+    #log2 = measure(data, cliques, sigma)
+    log2 = measure(mpc_3, cliques,domain_size, sigma)
+    engine = FactoredInference(domain, iters=5000)
     est = engine.estimate(log1+log2)
     synth = est.synthetic_data()
-    return undo_compress_fn(synth)
+    return synth
+    #return undo_compress_fn(synth)
 
-def measure(data, cliques, sigma, weights=None):
+def measure(mpc,cliques,domain_size, sigma, weights=None):
     if weights is None:
         weights = np.ones(len(cliques))
     weights = np.array(weights) / np.linalg.norm(weights)
     measurements = []
+    clique_indices = {value: i for i, value in enumerate(cliques)}
     for proj, wgt in zip(cliques, weights):
         '''
         Sikha: this one to be done in MPC
+        proj is the name of the feature, x is the marginal
+        
         '''
-        x = data.project(proj).datavector()
-        y = x + np.random.normal(loc=0, scale=sigma/wgt, size=x.size)
+        marginal_index = clique_indices[proj]
+        size = domain_size[marginal_index]
+        y = mpc.get_noisy_measurement(marginal_index,sigma/wgt)
+        #x = data.project(proj).datavector()
+        #y = x + np.random.normal(loc=0, scale=sigma/wgt, size=x.size)
         '''
         end
         '''
-        Q = sparse.eye(x.size)
+        Q = sparse.eye(size)
         measurements.append( (Q, y, sigma/wgt, proj) )
     return measurements
 
@@ -75,16 +117,25 @@ def exponential_mechanism(q, eps, sensitivity, prng=np.random, monotonic=False):
     probas = np.exp(scores - logsumexp(scores))
     return prng.choice(q.size, p=probas)
 
-def select(data, rho, measurement_log, cliques=[]):
-    engine = FactoredInference(data.domain, iters=1000)
+def select(mpc, workloads, domain, rho, measurement_log, cliques=[]):
+    engine = FactoredInference(domain, iters=1000)
     est = engine.estimate(measurement_log)
 
-    weights = {}
-    candidates = list(itertools.combinations(data.domain.attrs, 2))
+    #weights = {}
+    #candidates = list(itertools.combinations(data.domain.attrs, 2))
+
+    est_ans = []
+    for cl in workloads:
+        data_vector = est.project(cl).datavector()
+        #padded_data_vector = np.pad(data_vector, (0, max_domain_size - len(data_vector)), 'constant')
+        est_ans.append(data_vector)
+    mpc.est_ans = est_ans
 
     T = nx.Graph()
-    T.add_nodes_from(data.domain.attrs)
+    T.add_nodes_from(domain.attrs)
     ds = DisjointSet()
+
+
 
     for e in cliques:
         T.add_edge(*e)
@@ -106,21 +157,16 @@ def select(data, rho, measurement_log, cliques=[]):
     Sikha: Compute weights in MPC
     '''
     for i in range(r-1):
-        candidates = [e for e in candidates if not ds.connected(*e)]
+        candidates_loop = [e for e in workloads if not ds.connected(*e)]
+        candidates_indices = [i for i, value in enumerate(workload) if value in candidates_loop]
         '''
         Sikha start MPC
         '''
-        wgts = []
-        for e in candidates:
-            xhat = est.project(list(e)).datavector()
-            x = data.project(list(e)).datavector()
-            wgts.append(np.linalg.norm(x - xhat, 1))
-        wgts = np.array(wgts)
-        idx = exponential_mechanism(wgts, epsilon, sensitivity=1.0)
+        idx = mpc.select_marginal_worst_approximated(candidates_indices,epsilon,mst=True)
         '''
         Sikha end MPC
         '''
-        e = candidates[idx]
+        e = candidates_loop[idx]
         T.add_edge(*e)
         ds.union(*e)
 
@@ -201,19 +247,29 @@ if __name__ == '__main__':
     parser.set_defaults(**default_params())
     args = parser.parse_args()
 
-    data = Dataset.load(args.dataset, args.domain)
+    # Sikha start
+    # data = Dataset.load(args.dataset, args.domain)
+    config = json.load(open(args.domain))
+    domain = Domain(config.keys(), config.values())
+    # Sikha end
 
-    workload = list(itertools.combinations(data.domain, args.degree))
-    workload = [cl for cl in workload if data.domain.size(cl) <= args.max_cells]
+    workload = list(itertools.combinations(domain, args.degree))
+    workload = [cl for cl in workload if domain.size(cl) <= args.max_cells]
     if args.num_marginals is not None:
         workload = [workload[i] for i in prng.choice(len(workload), args.num_marginals, replace=False)]
 
-    synth = MST(data, args.epsilon, args.delta)
+    alice = HDataHolder("Alice", args.dataset,"horizontal",n=0.5)
+    bob = HDataHolder("Bob", args.dataset,"horizontal",n=0.5)
+
+
+
+    synth = MST(domain, args.epsilon, args.delta)
 
     if args.save is not None:
         synth.df.to_csv(args.save, index=False)
 
     errors = []
+    data = Dataset.load(args.dataset, args.domain)
     for proj in workload:
         X = data.project(proj).datavector()
         Y = synth.project(proj).datavector()
