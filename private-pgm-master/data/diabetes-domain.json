@@ -1,0 +1,9 @@
+{"Pregnancies": 5,
+ "Glucose": 5,
+ "BloodPressure": 5,
+ "SkinThickness": 4,
+ "Insulin": 3,
+ "BMI": 5,
+ "DiabetesPedigreeFunction": 5,
+ "Age": 5,
+ "Outcome": 2}
