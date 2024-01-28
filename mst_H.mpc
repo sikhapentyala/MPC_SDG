@@ -1,0 +1,102 @@
+from Compiler import ml, util, mpc_math
+import os
+import math
+
+
+
+# np.random.choice()
+def random_choice(size, prob):
+      sum_p = sfix(0)
+      c = sfix.Array(size)
+      for i in range(size):
+            sum_p = sum_p + prob[i]
+            c[i] = sum_p
+      rnd = sfix.get_random(0, 1)      
+      t = sum_p * rnd
+      s = 0
+      for i in range(size):
+            cnd = (c[i] > t)
+            s = s + cnd
+      cnd = (s == 0)
+      key = (size-cnd) - s * (1 - cnd)
+      #key = size - (s-1)*(1-cnd)
+      return key
+
+
+# Sampling Gaussian with Irwin-Hall
+def NormalSampler():
+   sum_u = 0
+   for _ in range(12):
+        sum_u = sum_u + sfix.get_random(0, 1)
+   sum_u = sum_u - 6
+   return sum_u
+
+# Computing Noise vector
+def compute_guassian(scale, size):
+    noise = sfix.Array(size)
+    for i in range(size):
+       noise[i] = scale * NormalSampler()    
+    return noise
+
+
+# Get noisy answers
+def get_noisy_measurement(index, scale):
+    size = domain[index]
+    x = alice_ans[index][:size] + bob_ans[index][:size]
+    noise = compute_guassian(scale,size)
+    return x + noise
+
+
+# Compute L1 norm
+def compute_l1_norm(err):
+    sum = 0
+    for i in range(len(err)):
+        sum = sum + mpc_math.abs_fx(err[i])
+    return sum
+
+# Compute the log of the sum of exponentials of input elements
+def logsumexp(scores):
+    sum = 0
+    for i in range(len(scores)):
+        sum = sum + mpc_math.pow_fx(math.e, scores[i])
+    val = mpc_math.log_fx(sum, math.e)
+    return val
+
+
+# Select worst approximated
+def select_marginal_worst_approximated(candidate_ids, epsilon):
+    errors = sfix.Array(len(candidate_ids))
+    for i in range(len(candidate_ids)):
+        idx = candidate_ids[i]
+        size = domain[idx]
+        x = alice_ans[idx][:size] + bob_ans[idx][:size]
+        x_est = est_ans[idx][:size]
+        err = x - x_est
+        err = compute_l1_norm(err)
+        errors[i] = err
+    sensitivity = 1.0
+    coef = 0.5
+    const = coef*epsilon/sensitivity
+    scores = const * errors
+    logsumexp_ = logsumexp(scores)
+    prob = mpc_math.pow_fx(math.e, (scores - logsumexp_))
+    ax = random_choice(len(errors), prob)
+    return ax
+
+
+
+
+max_domain_size = 10
+num_workloads = 5
+
+domain = sfix.Array(max_domain_size)
+alice_ans = sfix.Matrix(num_workloads, max_domain_size)
+bob_ans = sfix.Matrix(num_workloads, max_domain_size)
+candidate_ids = sint.Array(num_workloads)
+est_ans = sfix.Matrix(num_workloads, max_domain_size)
+
+candidate_ids.input_from(0)
+est_ans.input_from(0)
+alice_ans.input_from(0)
+domain.input_from(0)
+bob_ans.input_from(1)

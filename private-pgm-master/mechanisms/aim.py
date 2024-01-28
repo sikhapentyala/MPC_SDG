@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 import itertools
 from mbi import Dataset, GraphicalModel, FactoredInference, Domain
@@ -68,7 +70,7 @@ class AIM(Mechanism):
         candidates = compile_workload(workload)
 
         # Requires MPC, Compute answers and keep
-        answers = { cl : data.project(cl).datavector() for cl in candidates }
+        answers = {cl: data.project(cl).datavector() for cl in candidates}
 
         oneway = [cl for cl in candidates if len(cl) == 1]
 
@@ -79,6 +81,7 @@ class AIM(Mechanism):
         print('Initial Sigma', sigma)
         rho_used = len(oneway)*0.5/sigma**2
         for cl in oneway:
+            # MPC part
             x = data.project(cl).datavector()
             y = x + self.gaussian_noise(sigma,x.size)
             I = Identity(y.size) 
@@ -139,8 +142,8 @@ def default_params():
     :returns: a dictionary of default parameter settings for each command line argument
     """
     params = {}
-    params['dataset'] = '../data/adult.csv'
-    params['domain'] = '../data/adult-domain.json'
+    params['dataset'] = '../data/lymphography.csv'
+    params['domain'] = '../data/lym-domain.json'
     params['epsilon'] = 1.0
     params['delta'] = 1e-9
     params['noise'] = 'laplace'
@@ -150,7 +153,7 @@ def default_params():
     params['max_cells'] = 10000
 
     return params
-        
+
 if __name__ == "__main__":
 
     description = ''
@@ -169,6 +172,7 @@ if __name__ == "__main__":
     parser.set_defaults(**default_params())
     args = parser.parse_args()
 
+
     data = Dataset.load(args.dataset, args.domain)
 
     workload = list(itertools.combinations(data.domain, args.degree))
@@ -177,8 +181,11 @@ if __name__ == "__main__":
         workload = [workload[i] for i in prng.choice(len(workload), args.num_marginals, replace=False)]
 
     workload = [(cl, 1.0) for cl in workload]
+    start_time = time.perf_counter()
     mech = AIM(args.epsilon, args.delta, max_model_size=args.max_model_size)
     synth = mech.run(data, workload)
+    end_time = time.perf_counter()
+    print("Generated in :", end_time - start_time)
 
     if args.save is not None:
         synth.df.to_csv(args.save, index=False)

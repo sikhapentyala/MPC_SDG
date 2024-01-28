@@ -1,0 +1,2 @@
+age,workclass,fnlwgt,education-num,marital-status,occupation,relationship,race,sex,capital-gain,capital-loss,hours-per-week,native-country,income>50K
+81,3,50,11,5,10,1,0,0,63,35,84,35,1

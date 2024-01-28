@@ -129,6 +129,7 @@ def select(mpc, workloads, domain, rho, measurement_log, cliques=[]):
         data_vector = est.project(cl).datavector()
         #padded_data_vector = np.pad(data_vector, (0, max_domain_size - len(data_vector)), 'constant')
         est_ans.append(data_vector)
+
     mpc.est_ans = est_ans
 
     T = nx.Graph()

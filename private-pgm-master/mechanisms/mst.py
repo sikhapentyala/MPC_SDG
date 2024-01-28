@@ -8,6 +8,7 @@ from cdp2adp import cdp_rho
 from scipy.special import logsumexp
 import argparse
 
+
 """
 This is a generalization of the winning mechanism from the 
 2018 NIST Differential Privacy Synthetic Data Competition.
@@ -143,8 +144,8 @@ def default_params():
     :returns: a dictionary of default parameter settings for each command line argument
     """
     params = {}
-    params['dataset'] = '../data/adult.csv'
-    params['domain'] = '../data/adult-domain.json'
+    params['dataset'] = '../data/COMPAS_train.csv'
+    params['domain'] = '../data/compass-domain.json'
     params['epsilon'] = 1.0
     params['delta'] = 1e-9
     params['degree'] = 2
@@ -153,61 +154,6 @@ def default_params():
 
     return params
 
-def ML_utility_eval(label_, data, syn_data):
-    from sklearn.model_selection import train_test_split
-    from sklearn.preprocessing import StandardScaler, OrdinalEncoder, MinMaxScaler
-    from sklearn.preprocessing import OneHotEncoder
-    from sklearn.linear_model import LogisticRegression
-    from sklearn.ensemble import RandomForestClassifier
-
-    df = data.df
-    df_train, df_test = train_test_split(df, test_size=0.2)
-    label = label_
-    features_cfe = [col for col in df.columns if col != 'label']
-    #df_train.columns:, df_train.columns != 'label'
-
-    #lr = LogisticRegression(random_state=32)
-    #rf_classifier = RandomForestClassifier(n_estimators=100, random_state=42)
-
-    #models = [lr, rf_classifier]
-    #for clf in models:
-
-    clf = LogisticRegression(random_state=32)
-    clf.fit(df_train[features_cfe], df_train[label])
-    baseline = clf.score(df_train[features_cfe], df_train[label].values.ravel())
-    print("Real train accuracy: %.2f%%" % (baseline * 100))
-    print(np.unique(clf.predict(df_train[features_cfe]), return_counts=True))
-    baseline = clf.score(df_test[features_cfe], df_test[label].values.ravel())
-    print("Real test accuracy: %.2f%%" % (baseline * 100))
-    print(np.unique(clf.predict(df_test[features_cfe]), return_counts=True))
-
-    clf = LogisticRegression(random_state=32)
-    clf.fit(syn_data[features_cfe], syn_data[label])
-    baseline = clf.score(syn_data[features_cfe], syn_data[label].values.ravel())
-    print("Syn train accuracy: %.2f%%" % (baseline * 100))
-    print(np.unique(clf.predict(syn_data[features_cfe]), return_counts=True))
-    baseline = clf.score(df_test[features_cfe], df_test[label].values.ravel())
-    print("Real test accuracy: %.2f%%" % (baseline * 100))
-    print(np.unique(clf.predict(df_test[features_cfe]), return_counts=True))
-
-
-    clf = RandomForestClassifier(n_estimators=100, random_state=42)
-    clf.fit(df_train[features_cfe], df_train[label])
-    baseline = clf.score(df_train[features_cfe], df_train[label].values.ravel())
-    print("Real train accuracy: %.2f%%" % (baseline * 100))
-    print(np.unique(clf.predict(df_train[features_cfe]), return_counts=True))
-    baseline = clf.score(df_test[features_cfe], df_test[label].values.ravel())
-    print("Real test accuracy: %.2f%%" % (baseline * 100))
-    print(np.unique(clf.predict(df_test[features_cfe]), return_counts=True))
-
-    clf = RandomForestClassifier(n_estimators=100, random_state=42)
-    clf.fit(syn_data[features_cfe], syn_data[label])
-    baseline = clf.score(syn_data[features_cfe], syn_data[label].values.ravel())
-    print("Syn train accuracy: %.2f%%" % (baseline * 100))
-    print(np.unique(clf.predict(syn_data[features_cfe]), return_counts=True))
-    baseline = clf.score(df_test[features_cfe], df_test[label].values.ravel())
-    print("Real test accuracy: %.2f%%" % (baseline * 100))
-    print(np.unique(clf.predict(df_test[features_cfe]), return_counts=True))
 
 
 

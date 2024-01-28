@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 import itertools
 from mbi import Dataset, GraphicalModel, FactoredInference
@@ -61,7 +63,7 @@ def mwem_pgm(data, epsilon, delta=0.0, workload=None, rounds=None, maxsize_mb = 
     if workload is None:
         workload = list(itertools.combinations(data.domain, 2))
     if rounds is None:
-        rounds = len(data.domain)
+        rounds = len(data.domain) #100
 
     if noise == 'laplace':
         eps_per_round = epsilon / rounds
@@ -90,10 +92,12 @@ def mwem_pgm(data, epsilon, delta=0.0, workload=None, rounds=None, maxsize_mb = 
     for i in range(1, rounds+1):
         # [New] Only consider candidates that keep the model sufficiently small
         candidates = [cl for cl in workload if size(cliques+[cl]) <= maxsize_mb*i/rounds]
+        #print("Size:", len(candidates), "   ", maxsize_mb*i/rounds, "  ", size(cliques))
         ax = worst_approximated(workload_answers, est, candidates, exp_eps)
         print('Round', i, 'Selected', ax, 'Model Size (MB)', est.size*8/2**20)
         n = domain.size(ax)
         x = data.project(ax).datavector()
+        #print("scale:", marginal_sensitivity*sigma)
         if noise == 'laplace':
             y = x + np.random.laplace(loc=0, scale=marginal_sensitivity*sigma, size=n)
         else:
@@ -113,8 +117,11 @@ def default_params():
     :returns: a dictionary of default parameter settings for each command line argument
     """
     params = {}
-    params['dataset'] = '../data/adult.csv'
-    params['domain'] = '../data/adult-domain.json'
+    params['dataset'] = '../data/breast-cancer_enc.csv'
+    params['domain'] = '../data/breast-domain.json'
+    #params['dataset'] = '../data/compas_train.csv'
+    #params['domain'] = '../data/compas-domain.json'
+    #params['save'] = '../data/compas-syn.json'
     params['epsilon'] = 1.0
     params['delta'] = 1e-9
     params['rounds'] = None
@@ -157,11 +164,14 @@ if __name__ == "__main__":
     if args.num_marginals is not None:
         workload = [workload[i] for i in prng.choice(len(workload), args.num_marginals, replace=False)]
 
+    start_time = time.perf_counter()
     synth = mwem_pgm(data, args.epsilon, args.delta, 
                     workload=workload,
                     rounds=args.rounds,
                     maxsize_mb=args.max_model_size,
                     pgm_iters=args.pgm_iters)
+    end_time = time.perf_counter()
+    print("Generated in :", end_time - start_time)
 
     if args.save is not None:
         synth.df.to_csv(args.save, index=False)

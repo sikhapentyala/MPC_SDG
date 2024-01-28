@@ -132,7 +132,8 @@ def mwem_pgm(domain, epsilon, delta=0.0, workload=None, rounds=None, maxsize_mb 
     #_column_ids.extend(bob.column_ids_for_workload_ids)
     N_cols = alice.total_columns
 
-
+    #print(alice_workload_ids)
+    #print(bob_workload_ids)
 
     engine = FactoredInference(domain, log=False, iters=pgm_iters, warm_start=True)
     measurements = []
@@ -173,10 +174,10 @@ def mwem_pgm(domain, epsilon, delta=0.0, workload=None, rounds=None, maxsize_mb 
         # TODO Cross check if this is better (mpc noisy requires constructing data cube again)
         # TODO which is costly constructing data cube or generating noise.
         # TODO 42/91 can be done without MPC, almost half of them are to be done in MPC --> lap noise+datacube
-        if ax in alice_workload_ids:
-            y = alice.get_noisy_measurement(ax, scale,domain)
-        elif ax in bob_workload_ids:
-            y = bob.get_noisy_measurement(ax, scale,domain)
+        if ax_index in alice_workload_ids:
+            y = alice.get_noisy_measurement(ax, ax_index,scale,domain)
+        elif ax_index in bob_workload_ids:
+            y = bob.get_noisy_measurement(ax, ax_index, scale,domain)
         else:
             y = mpc.get_noisy_measurement(ax_index,scale,alice.data,bob.data)
         print('Round', i, 'Selected', ax , 'Model Size (MB)', est.size*8/2**20)
@@ -207,8 +208,8 @@ def default_params():
     :returns: a dictionary of default parameter settings for each command line argument
     """
     params = {}
-    params['dataset'] = '../data/adult.csv'
-    params['domain'] = '../data/adult-domain.json'
+    params['dataset'] = '../data/COMPAS_train.csv'
+    params['domain'] = '../data/compass-domain.json'
     params['epsilon'] = 1.0
     params['delta'] = 1e-9
     params['rounds'] = None
@@ -255,8 +256,8 @@ if __name__ == "__main__":
     if args.num_marginals is not None:
         workload = [workload[i] for i in prng.choice(len(workload), args.num_marginals, replace=False)]
 
-    alice = VDataHolder("Alice", args.dataset,"vertical",n=0.5)
-    bob = VDataHolder("Bob", args.dataset,"vertical",n=0.5)
+    alice = VDataHolder("Alice", '../data/COMPAS_train_alice_v.csv',"vertical",n=0.5)
+    bob = VDataHolder("Bob", '../data/COMPAS_train_bob_v.csv',"vertical",n=0.5)
 
 
 

@@ -1,0 +1,65 @@
+from Compiler import ml, util, mpc_math, library
+import os
+
+
+
+# Sampling Gaussian with Irwin-Hall
+def NormalSampler():
+   sum_u = 0
+   for _ in range(12):
+        sum_u = sum_u + sfix.get_random(0, 1)
+   sum_u = sum_u - 6
+   return sum_u
+
+# Computing Noise vector
+def compute_guassian(scale, size):
+    noise = sfix.Array(max_domain_size)
+    @for_range_opt(size)
+    def _(i):
+       noise[i] = scale * NormalSampler()
+    return noise
+
+
+# Get noisy answers
+def get_noisy_measurement(index, scale):
+    size = domain[index]
+    x = alice_ans[index] + bob_ans[index]
+    noise = compute_guassian(scale,size)
+    return x + noise
+
+max_domain_size = int(program.args[1])
+num_workloads = int(program.args[2])
+
+alice_ans = sfix.Matrix(num_workloads, max_domain_size)
+bob_ans = sfix.Matrix(num_workloads, max_domain_size)
+
+
+
+alice_ans.input_from(0)
+bob_ans.input_from(1)
+
+domain = Array(num_workloads, cint)
+for i in range(num_workloads):
+    domain[i] = public_input()
+
+sigma = cfix._new(public_input())
+marginal_index = public_input()
+
+
+
+
+start_timer(100)
+y = get_noisy_measurement(marginal_index, sigma)
+stop_timer(100)
+print_ln("Y:%s", y.reveal())
+
+
+
+
+
+
+
+
+
+
+

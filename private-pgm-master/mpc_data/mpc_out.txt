@@ -1,0 +1,13 @@
+Using statistical security parameter 40
+Trying to run 64-bit computation
+Ax:1
+Y:[-0.08992, 2.00031, 5.555, 9.0000, 1.234]
+Significant amount of unused dabits of replicated Z2^64 distorting the benchmark. For more accurate benchmarks, consider reducing the batch size with --batch-size.
+The following benchmarks are including preprocessing (offline phase).
+Time = 0.0118935 seconds
+Data sent = 0.177704 MB in ~150 rounds (party 0 only; use '-v' for more details)
+Global data sent = 0.53292 MB (all parties)
+This program might benefit from some protocol options.
+Consider adding the following at the beginning of your code:
+        program.use_trunc_pr = True
+        program.use_split(3)
