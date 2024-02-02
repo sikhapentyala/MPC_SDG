@@ -16,7 +16,8 @@ class HDataHolder:
         self.weights = None
 
     def load_data(self):
-        df = pd.read_csv(self.dataset)
+        self.data = pd.read_csv(self.dataset)
+        '''
         if self.name == "Alice":
             #if self.partition == "horizontal":
                 n = int(df.shape[0] * self.n)
@@ -25,6 +26,7 @@ class HDataHolder:
             #if self.partition == "horizontal":
                 n = int(df.shape[0] * self.n)
                 self.data = df.iloc[n:df.shape[0],:]
+        '''
 
     def number_of_samples(self):
         self.total_samples = self.data.shape[0]
@@ -62,7 +64,9 @@ class VDataHolder:
 
 
     def load_data(self,workload):
-        df = pd.read_csv(self.dataset)
+        self.data = pd.read_csv(self.dataset)
+
+        '''
         self.total_columns = df.shape[1]
         if self.name == "Alice":
                 n = int(df.shape[1] * self.n)
@@ -71,6 +75,7 @@ class VDataHolder:
         elif self.name == "Bob":
                 n = int(df.shape[1] * self.n)
                 self.data = df.iloc[:,n:df.shape[1]]
+        '''
         self.workload_ids = self.get_workload_ids(workload)
         # self.column_ids_for_workload_ids = self.get_column_ids_workload_ids(workload)
 
@@ -79,20 +84,24 @@ class VDataHolder:
         self.total_samples = self.data.shape[0]
 
 
-    def compute_answers(self,workload,domain,max_domain_size,flatten=True):
+    def compute_answers(self,workload,domain,max_domain_size,flatten=True, padded=True):
         my_ans = np.zeros((len(workload), max_domain_size))
+        #my_ans = np.zeros(len(workload))
         for i,cl in enumerate(workload):
             if i in self.workload_ids:
                 shape = domain.project(cl).shape
                 bins = [range(n+1) for n in shape]
                 ans = np.histogramdd(self.data[list(cl)].values, bins, weights=self.weights)[0]
                 data_vector = ans.flatten() if flatten else ans
-                padded_data_vector = np.pad(data_vector, (0, max_domain_size - len(data_vector)), 'constant')
-                my_ans[i]= padded_data_vector
+                if padded:
+                    data_vector = np.pad(data_vector, (0, max_domain_size - len(data_vector)), 'constant')
+                my_ans[i]= data_vector
         self.workload_answers = my_ans
 
-    def get_noisy_measurement(self,ax, scale, domain):
-        return self.workload_answers[ax] + np.random.normal(loc=0, scale=scale, size=domain.project(ax).size)
+    def get_noisy_measurement(self, ax, ax_index, scale, domain):
+        size = domain.project(ax).size()
+        y = self.workload_answers[ax_index,:size] + np.random.normal(loc=0, scale=scale, size=size)
+        return y
 
     def get_workload_ids(self, workload):
         columns = self.data.columns
@@ -108,10 +117,13 @@ class VDataHolder:
         column_ids = []
         for i,cl in enumerate(workload):
             if self.name == 'Alice':
+                for elem in cl:
+                    c = columns.get_index(elem)
                 column_ids[i] = [columns.get_index(elem) for elem in cl]
             if self.name == 'Bob':
                 column_ids[i] = [N-columns.get_index(elem) for elem in cl]
         return column_ids
+
 
 
 
