@@ -9,9 +9,10 @@ privacy and utility as in the centralized paradigm, however without having to sa
 - Install and setup private-pgm (https://github.com/ryan112358/private-pgm)
 - Install and setup MP-SPDZ (https://github.com/data61/MP-SPDZ)
 - Download the data in private-pgm/data/
-- The code used for experiments is available in this_repo/private-pgm/mechanisms/<method_partition>.py
+- The code used for experiments is available in this_repo/private-pgm/mechanisms/<method>_MPC_<partition>.py
 
 # Run the code
 - Go to this_repo/private-pgm/mechanisms/
 - Set the parameters and check for compilations
 - Run the python file
+Example: python3 aim_MPC_H.py for horizontal distributed setting
