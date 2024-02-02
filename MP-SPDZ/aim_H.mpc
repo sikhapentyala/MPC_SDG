@@ -1,0 +1,138 @@
+from Compiler import ml, util, mpc_math, library
+import os
+program.use_split(3)
+
+# np.random.choice()
+def random_choice(prob):
+      c = sfix.Array(num_candidates)
+      sum_p = sfix(0)
+      for i in range(num_candidates):
+          sum_p = sum_p + prob[i]
+          c[i] = sum_p
+
+      rnd = sfix.get_random(0, 1)
+      t = sum_p * rnd
+      s = 0
+      for i in range(num_candidates):
+          cnd = (c[i] > t)
+          s = s + cnd
+      cnd = (s == 0)
+      key = (num_candidates-cnd) - s * (1 - cnd)
+      return key
+
+
+# Sampling Gaussian with Irwin-Hall
+def NormalSampler():
+   sum_u = 0
+   for _ in range(12):
+        sum_u = sum_u + sfix.get_random(0, 1)
+   sum_u = sum_u - 6
+   return sum_u
+
+# Computing Noise vector
+def compute_guassian(scale, size):
+    noise = sfix.Array(max_domain_size)
+    @for_range_opt(size)
+    def _(i):
+       noise[i] = scale * NormalSampler()
+    return noise
+
+
+# Compute L1 norm
+def compute_l1_norm(err, size):
+    sum = sfix(0)
+    err = Array.create_from(err)
+    @for_range(size)
+    def _(i):
+        sum.update(sum + mpc_math.abs_fx(err[i]))
+    return sum
+
+# Get noisy answers
+def get_noisy_measurement(index, scale):
+    size = domain[index]
+    x = alice_ans[index] + bob_ans[index]
+    noise = compute_guassian(scale,size)
+    #print_ln("%s", x.sizes)
+    return x + noise
+
+
+
+# Select worst approximated
+def select_marginal_worst_approximated(candidate_ids, epsilon, max_sensitivity, bias, wgt):
+    errors = sfix.Array(num_candidates)
+    for i in range(num_candidates):
+        idx = candidate_ids[i]
+        size_ = domain[idx]
+        bias_ = bias[idx]
+        wt_ = wgt[idx]
+        x = alice_ans[idx] + bob_ans[idx]
+        x_est = est_ans[idx]
+        err_ = x - x_est
+        err = wt_ * (compute_l1_norm(err_, size_) - bias_)
+        errors[i] = err
+    error_max = util.max(errors)
+    prob = ml.softmax(0.5*epsilon/max_sensitivity*(errors - error_max))
+    #print_ln("%s", sum(prob).reveal())
+    ax = random_choice(prob)
+    return ax
+
+
+
+
+
+max_domain_size = int(program.args[1])
+num_workloads = int(program.args[2])
+num_candidates = int(program.args[2])
+
+alice_ans = sfix.Matrix(num_workloads, max_domain_size)
+bob_ans = sfix.Matrix(num_workloads, max_domain_size)
+est_ans = sfix.Matrix(num_workloads, max_domain_size)
+
+
+alice_ans.input_from(0)
+bob_ans.input_from(1)
+est_ans.input_from(0)
+
+epsilon = cfix._new(public_input())
+max_sensitivity = cfix._new(public_input())
+scale = cfix._new(public_input())
+
+candidate_ids = Array(num_candidates, cint)
+for i in range(num_candidates):
+    candidate_ids[i] = public_input()
+
+domain = Array(num_workloads, cint)
+for i in range(num_workloads):
+    domain[i] = public_input()
+
+bias = Array(num_candidates, cfix)
+for i in range(num_candidates):
+    bias[i] = cfix._new(public_input())
+
+wgt = Array(num_candidates, cfix)
+for i in range(num_candidates):
+    wgt[i] = cfix._new(public_input())
+
+start_timer(100)
+start_timer(104)
+ax = select_marginal_worst_approximated(candidate_ids, epsilon, max_sensitivity,bias,wgt)
+stop_timer(104)
+start_timer(105)
+y = get_noisy_measurement(ax.reveal(), scale)
+stop_timer(105)
+stop_timer(100)
+
+print_ln("Ax:%s", ax.reveal())
+print_ln("Y:%s", y.reveal())
+
+
+
+
+
+
+
+
+
+
+
+
